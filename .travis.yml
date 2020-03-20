@@ -15,8 +15,8 @@ before_install:
   - export VBCC=$PWD/vbcc
 
 install:
-  - [ ! -f tundra/bin/tundra2 ] && git clone --recurse-submodules https://github.com/deplinenoise/tundra.git t2-build && cd t2-build && make && PREFIX=$PWD/../tundra make install
-  - [ ! -f vbcc/bin/vbccm68k ] && ./build_vbcc.sh
+  - if [ ! -f tundra/bin/tundra2  ]; then git clone --recurse-submodules https://github.com/deplinenoise/tundra.git t2-build && cd t2-build && make && PREFIX=$PWD/../tundra make install ; fi
+  - if [ ! -f   vbcc/bin/vbccm68k ]; then ./build_vbcc.sh ; fi
 
 script:
   - tundra2 release
