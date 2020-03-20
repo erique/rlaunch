@@ -9,6 +9,10 @@ addons:
     packages:
       - p7zip-full
 
+before_install:
+  - git --recurse-submodules clone git://github.com:deplinenoise/tundra.git
+  - cd tundra && make && make install
+
 install:
   - ./build_vbcc.sh
 
