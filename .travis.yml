@@ -10,7 +10,7 @@ addons:
       - p7zip-full
 
 before_install:
-  - git --recurse-submodules clone git://github.com:deplinenoise/tundra.git
+  - git clone --recurse-submodules clone git://github.com:deplinenoise/tundra.git
   - cd tundra && make && make install
 
 install:
