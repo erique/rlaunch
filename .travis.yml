@@ -2,6 +2,7 @@ language: c
 
 cache:
   directories:
+    - tundra
     - vbcc
 
 addons:
@@ -10,12 +11,13 @@ addons:
       - p7zip-full
 
 before_install:
-  - git clone --recurse-submodules git://github.com:deplinenoise/tundra.git
-  - cd tundra && make && make install
+  - export PATH=$PATH:$PWD/tundra/bin
+  - export VBCC=$PWD/vbcc
 
 install:
-  - ./build_vbcc.sh
+  - [ ! -f tundra/bin/tundra2 ] && git clone --recurse-submodules https://github.com/deplinenoise/tundra.git t2-build && cd t2-build && make && PREFIX=$PWD/../tundra make install
+  - [ ! -f vbcc/bin/vbccm68k ] && ./build_vbcc.sh
 
 script:
   - tundra2 release
-  - VBCC=$PWD/vbcc tundra2 -j 1 amiga-vbcc-release
+  - tundra2 -j 1 amiga-vbcc-release
