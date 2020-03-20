@@ -1,0 +1,12 @@
+language: c
+
+cache:
+  directories:
+    - vbcc
+
+install:
+  - ./build_vbcc.sh
+
+script:
+  - tundra2 release
+  - VBCC=$PWD/vbcc tundra2 -j 1 amiga-vbcc-release
