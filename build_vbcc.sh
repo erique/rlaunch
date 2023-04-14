@@ -18,6 +18,8 @@ mkdir -p bin
 mkdir -p config
 mkdir -p targets
 
+echo -e "\033[1;33m****** CONFIG ******\033[0m"
+
 cat << 'EOF' | sed -e s:%%VBCC%%:$VBCC:g | sed -e 's:/\([a-z]\)/:\1\:/:g' > config/vc.config
 -cc=%%VBCC%%/bin/vbccm68k -quiet -hunkdebug %s -o= %s %s -O=%ld -I"%%VBCC%%/targets/m68k-amigaos/include" -I"%%VBCC%%/targets/m68k-amigaos/ndkinclude" -I"%%VBCC%%/targets/m68k-amigaos/netinclude"
 -ccv=%%VBCC%%/bin/vbccm68k       -hunkdebug %s -o= %s %s -O=%ld -I"%%VBCC%%/targets/m68k-amigaos/include" -I"%%VBCC%%/targets/m68k-amigaos/ndkinclude" -I"%%VBCC%%/targets/m68k-amigaos/netinclude"
@@ -35,9 +37,12 @@ cat << 'EOF' | sed -e s:%%VBCC%%:$VBCC:g | sed -e 's:/\([a-z]\)/:\1\:/:g' > conf
 -ml=500
 EOF
 cp config/vc.config config/vc.cfg
+cat config/vc.cfg
 
-wget --no-check-certificate https://server.owl.de/~frank/tags/vbcc0_9g.tar.gz
-tar xzf vbcc0_9g.tar.gz
+echo -e "\033[1;33m****** VBCC ******\033[0m"
+
+wget https://github.com/erique/vbcc_vasm_vlink/raw/master/vbcc.tar.gz
+tar xzf vbcc.tar.gz
 patch -p 0 << 'EOF'
 diff -rupN vbcc/datatypes/dtgen.c vbcc.patch/datatypes/dtgen.c
 --- vbcc/datatypes/dtgen.c	2013-04-24 00:45:50 +0200
@@ -63,32 +68,44 @@ diff -rupN vbcc/datatypes/dtgen.c vbcc.patch/datatypes/dtgen.c
    return in;
  }
 EOF
-cd vbcc && mkdir bin && make TARGET=m68k -j 4 && cp bin/vc ../bin && cp bin/vbccm68k ../bin && cd -
-rm -rf vbcc vbcc*.tar.gz
+cd vbcc && mkdir -p bin && make TARGET=m68k -j 4 && cp bin/vc ../bin && cp bin/vbccm68k ../bin && cd -
+rm -rf vbcc vbcc.tar.gz
 
-wget --no-check-certificate http://server.owl.de/~frank/vbcc/2019-10-04/vbcc_target_m68k-amigaos.lha
+echo -e "\033[1;33m****** VBCC/68K ******\033[0m"
+
+wget https://github.com/erique/vbcc_vasm_vlink/raw/master/vbcc_target_m68k-amigaos.lha
 7z x vbcc_target_m68k-amigaos.lha
 cd vbcc_target_m68k-amigaos && mv targets/m68k-amigaos ../targets/m68k-amigaos && cd -
 rm -rf vbcc_target_m68k-amigaos*
 
-wget http://sun.hasenbraten.de/vlink/release/vlink.tar.gz
+echo -e "\033[1;33m****** VLINK ******\033[0m"
+
+wget https://github.com/erique/vbcc_vasm_vlink/raw/master/vlink.tar.gz
 tar xzf vlink.tar.gz
 cd vlink && make -j 4 && cp vlink ../bin && cd -
 rm -rf vlink vlink.tar.gz
 
-wget http://sun.hasenbraten.de/vasm/release/vasm.tar.gz
+echo -e "\033[1;33m****** VASM ******\033[0m"
+
+wget https://github.com/erique/vbcc_vasm_vlink/raw/master/vasm.tar.gz
 tar xzf vasm.tar.gz
 cd vasm && make CPU=m68k SYNTAX=mot -j 4 && cp vasmm68k_mot ../bin && cd -
 rm -rf vasm vasm.tar.gz
 
-wget http://www.haage-partner.de/download/AmigaOS/NDK39.lha
-7z x -y NDK39.lha NDK_3.9
-cd NDK_3.9 && mv Include/include_h ../targets/m68k-amigaos/ndkinclude && cd -
-rm -rf NDK_3.9 NDK39.lha
+echo -e "\033[1;33m****** NDK ******\033[0m"
+
+wget http://aminet.net/dev/misc/NDK3.2.lha
+7z x -y NDK3.2.lha -oNDK
+cd NDK && mv Include_H ../targets/m68k-amigaos/ndkinclude && cd -
+rm -rf NDK NDK3.2.lha
+
+echo -e "\033[1;33m****** AmiTCP SDK ******\033[0m"
 
 wget http://aminet.net/comm/tcp/AmiTCP-SDK-4.3.lha
 7z x -y AmiTCP-SDK-4.3.lha AmiTCP-SDK-4.3
 cd AmiTCP-SDK-4.3 && mv netinclude ../targets/m68k-amigaos/netinclude && cd -
 rm -rf AmiTCP-SDK-4.3 AmiTCP-SDK-4.3.lha
+
+echo -e "\033[1;33m****** DONE ******\033[0m"
 
 popd
