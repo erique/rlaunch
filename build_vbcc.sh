@@ -94,7 +94,7 @@ rm -rf vasm vasm.tar.gz
 
 echo -e "\033[1;33m****** NDK ******\033[0m"
 
-wget http://aminet.net/dev/misc/NDK3.2.lha
+wget https://aminet.net/dev/misc/NDK3.2.lha
 7z x -y NDK3.2.lha -oNDK
 cd NDK && mv Include_H ../targets/m68k-amigaos/ndkinclude && cd -
 rm -rf NDK NDK3.2.lha
