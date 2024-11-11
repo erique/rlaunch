@@ -1,0 +1,12 @@
+diff -rupN t2-build/src/Config.hpp t2-build/src/Config.hpp
+--- t2-build/src/Config.hpp	2024-11-11 23:11:11.726671365 +0100
++++ t2-build/src/Config.hpp	2024-11-11 23:11:40.626760423 +0100
+@@ -36,7 +36,7 @@
+ 
+ #if defined(__powerpc__)
+ #define USE_LITTLE_ENDIAN NO
+-#elif defined(_WIN32) || defined(__x86__) || defined(__x86_64__) || defined(i386) || defined(__i386__) || defined(__aarch64__)
++#elif defined(_WIN32) || defined(__x86__) || defined(__x86_64__) || defined(i386) || defined(__i386__) || defined(__aarch64__) || defined(__arm__)
+ #define USE_LITTLE_ENDIAN YES
+ #else
+ #error add endian detection here
