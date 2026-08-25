@@ -648,6 +648,75 @@ int rl_string_copy(size_t dest_size, char *dest, const char *source)
 	return *source ? -1 : 0;
 }
 
+static INLINE int is_path_separator(char ch)
+{
+	if ('/' == ch)
+		return 1;
+
+#ifdef RL_WIN32
+	if ('\\' == ch)
+		return 1;
+#endif
+
+	return 0;
+}
+
+/*
+ * Splits the directory part off an executable path so that it can serve as the
+ * file serving root, leaving *name_out pointing at the name the target is asked
+ * to launch. Separators are '/', and '\' on Win32 as well.
+ */
+int rl_split_exe_path(size_t dir_size, char *dir_out, const char **name_out, const char *exe_path)
+{
+	const char *colon = rl_strchr(exe_path, ':');
+	const char *last_separator = NULL;
+	const char *cursor;
+	size_t dirlen;
+
+	if (NULL != colon)
+	{
+#ifdef RL_WIN32
+		/* A drive prefix is a colon in second position followed by a separator,
+		 * and names a directory on this machine. A colon anywhere else makes
+		 * this one of the target's own paths, e.g. "c:list", which it resolves
+		 * without any help from the file server. */
+		if (exe_path + 1 != colon || !is_path_separator(colon[1]))
+			return RL_EXE_PATH_NO_DIRECTORY;
+#else
+		return RL_EXE_PATH_NO_DIRECTORY;
+#endif
+	}
+
+	for (cursor = exe_path; '\0' != *cursor; ++cursor)
+	{
+		if (is_path_separator(*cursor))
+			last_separator = cursor;
+	}
+
+	if (NULL == last_separator)
+		return RL_EXE_PATH_NO_DIRECTORY;
+
+	if ('\0' == last_separator[1])
+		return RL_EXE_PATH_NO_NAME;
+
+	dirlen = (size_t) (last_separator - exe_path);
+
+	/* The filesystem root, and the root of a drive, are nothing but their
+	 * separator, so it stays part of the directory: "/prog" would otherwise
+	 * leave no directory at all, and "c:\prog" the drive-relative "c:". */
+	if (0 == dirlen || (NULL != colon && colon + 1 == last_separator))
+		++dirlen;
+
+	if (dirlen + 1 > dir_size)
+		return RL_EXE_PATH_DIR_TOO_LONG;
+
+	rl_memcpy(dir_out, exe_path, dirlen);
+	dir_out[dirlen] = '\0';
+	*name_out = last_separator + 1;
+
+	return RL_EXE_PATH_SPLIT;
+}
+
 static INLINE void strbuf_append_ch(rl_strbuf_t *buf, char ch)
 {
 	if (buf->buffer != buf->max)

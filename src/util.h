@@ -233,6 +233,19 @@ rl_dict_destroy(rl_dict_t *dict);
 
 /* String utilities */
 
+/*
+ * Result of rl_split_exe_path().
+ */
+enum
+{
+	RL_EXE_PATH_NO_DIRECTORY,	/* a bare name, or a path the target resolves itself */
+	RL_EXE_PATH_SPLIT,			/* dir_out holds the directory, *name_out the name */
+	RL_EXE_PATH_DIR_TOO_LONG,	/* the directory part does not fit in dir_out */
+	RL_EXE_PATH_NO_NAME			/* the path ends with a separator and names nothing */
+};
+
+int rl_split_exe_path(size_t dir_size, char *dir_out, const char **name_out, const char *exe_path);
+
 typedef struct rl_strbuf_tag
 {
 	char *buffer;

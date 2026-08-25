@@ -131,8 +131,10 @@ Arguments:
 
 Options:
   -fsroot        Specifies the file serving directory. The executable
-                 must live in this directory as well. (default: exe_path's
-                 own directory, or cwd if exe_path has none)
+                 must live in this directory as well. (default: the
+                 directory exe_path names, or cwd when it names none.
+                 An Amiga path like c:info names no host directory; a
+                 Windows drive path like c:\dir\prog does)
 
   -port          The TCP port to connect to (default: 7001)
 

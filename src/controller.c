@@ -288,8 +288,10 @@ static const char * const usage_string =
 "\n"
 "Options:\n"
 "  -fsroot        Specifies the file serving directory. The executable\n"
-"                 must live in this directory as well. (default: exe_path's\n"
-"                 own directory, or cwd if exe_path has none)\n"
+"                 must live in this directory as well. (default: the\n"
+"                 directory exe_path names, or cwd when it names none.\n"
+"                 An Amiga path like c:info names no host directory; a\n"
+"                 Windows drive path like c:\\dir\\prog does)\n"
 "\n"
 "  -port          The TCP port to connect to (default: 7001)\n"
 "\n"
@@ -412,23 +414,34 @@ int main(int argc, char** argv)
 	}
 
 	/* Without an explicit -fsroot, derive it from exe_path's directory so
-	 * `rl-controller host some/dir/Exe` works without a separate -fsroot.
-	 * exe_path containing ':' is an absolute Amiga path (e.g. c:list) run
-	 * directly on the target rather than served from the host, so it is
-	 * left alone. */
+	 * `rl-controller host some/dir/Exe` works without a separate -fsroot. An
+	 * absolute Amiga path (e.g. c:list) is run directly on the target rather
+	 * than served from the host, and has no directory to derive. */
 	char derived_fsroot[sizeof(ctrl.root_handle.native_path)];
 
-	if (!fsroot[0] && NULL == rl_strchr(ctrl.executable, ':'))
+	if (!fsroot[0])
 	{
-		const char *slash = strrchr(ctrl.executable, '/');
+		const char *exe_name;
 
-		if (NULL != slash && (size_t) (slash - ctrl.executable) < sizeof(derived_fsroot))
+		switch (rl_split_exe_path(sizeof(derived_fsroot), derived_fsroot, &exe_name, ctrl.executable))
 		{
-			size_t dirlen = (size_t) (slash - ctrl.executable);
-			memcpy(derived_fsroot, ctrl.executable, dirlen);
-			derived_fsroot[dirlen] = '\0';
-			fsroot = derived_fsroot;
-			ctrl.executable = slash + 1;
+			case RL_EXE_PATH_SPLIT:
+				fsroot = derived_fsroot;
+				ctrl.executable = exe_name;
+				break;
+
+			case RL_EXE_PATH_DIR_TOO_LONG:
+				RL_LOG_CONSOLE(("the directory part of '%s' is longer than %d characters; pass -fsroot <path>\n",
+								ctrl.executable, (int) sizeof(derived_fsroot) - 1));
+				goto cleanup;
+
+			case RL_EXE_PATH_NO_NAME:
+				RL_LOG_CONSOLE(("'%s' ends with a path separator and names no executable\n",
+								ctrl.executable));
+				goto cleanup;
+
+			default:
+				break;
 		}
 	}
 
@@ -461,13 +474,25 @@ int main(int argc, char** argv)
 		}
 	}
 
-	/* make sure root path stored doesn't contain a path separator */
+	/* Make sure the root path stored doesn't end with a path separator, since
+	 * the file server joins it with one when it resolves a name against the
+	 * root. A root that is nothing but a separator needs a spelling that
+	 * survives that join: on Win32 the empty string, which resolves against the
+	 * current drive, and elsewhere the separator itself, since realpath("")
+	 * fails and would deny every request. */
 	{
 		size_t dirlen = strlen(ctrl.root_handle.native_path);
-		
+
 		if (dirlen > 0 && ctrl.root_handle.native_path[dirlen-1] == NATIVE_PATH_TERMINATOR)
 		{
+#ifdef RL_WIN32
 			ctrl.root_handle.native_path[dirlen-1] = '\0';
+#else
+			if (dirlen > 1)
+			{
+				ctrl.root_handle.native_path[dirlen-1] = '\0';
+			}
+#endif
 		}
 	}
 

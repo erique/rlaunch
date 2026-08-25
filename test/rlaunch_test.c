@@ -393,6 +393,141 @@ UTEST(strbuf, append_str_len_stops_at_the_requested_length)
 }
 
 /* -------------------------------------------------------------------------
+ * util.c -- executable path splitting
+ *
+ * Without -fsroot the controller serves the directory this splits off, and
+ * asks the target to launch what is left, so a wrong answer here means the
+ * wrong directory is exported to the Amiga.
+ * ------------------------------------------------------------------------- */
+
+UTEST(split_exe_path, a_bare_name_has_no_directory)
+{
+	char dir[260];
+	const char *name = NULL;
+
+	ASSERT_EQ(RL_EXE_PATH_NO_DIRECTORY,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "Prog"));
+	ASSERT_TRUE(NULL == name);
+}
+
+UTEST(split_exe_path, splits_the_last_component_off)
+{
+	char dir[260];
+	const char *name = NULL;
+
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "some/dir/Prog"));
+	ASSERT_STREQ("some/dir", dir);
+	ASSERT_STREQ("Prog", name);
+
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "./Prog"));
+	ASSERT_STREQ(".", dir);
+	ASSERT_STREQ("Prog", name);
+}
+
+/* "/Prog" has to serve the root itself, not the empty string, which reads as
+ * "no -fsroot given" and would silently serve the current directory instead. */
+UTEST(split_exe_path, an_executable_in_the_root_keeps_the_separator)
+{
+	char dir[260];
+	const char *name = NULL;
+
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "/Prog"));
+	ASSERT_STREQ("/", dir);
+	ASSERT_STREQ("Prog", name);
+
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "/opt/Prog"));
+	ASSERT_STREQ("/opt", dir);
+	ASSERT_STREQ("Prog", name);
+}
+
+/* Paths with a device prefix are resolved by the target itself; there is no
+ * host-side directory in them to serve. */
+UTEST(split_exe_path, a_target_path_has_no_directory)
+{
+	char dir[260];
+	const char *name = NULL;
+
+	ASSERT_EQ(RL_EXE_PATH_NO_DIRECTORY,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "c:list"));
+	ASSERT_EQ(RL_EXE_PATH_NO_DIRECTORY,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "DH0:tools/Prog"));
+}
+
+UTEST(split_exe_path, a_trailing_separator_names_no_executable)
+{
+	char dir[260];
+	const char *name = NULL;
+
+	ASSERT_EQ(RL_EXE_PATH_NO_NAME,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "some/dir/"));
+	ASSERT_EQ(RL_EXE_PATH_NO_NAME,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "/"));
+}
+
+UTEST(split_exe_path, a_directory_that_does_not_fit_is_reported)
+{
+	char dir[4];
+	const char *name = NULL;
+
+	/* Three characters and the terminator is an exact fit. */
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "abc/Prog"));
+	ASSERT_STREQ("abc", dir);
+
+	ASSERT_EQ(RL_EXE_PATH_DIR_TOO_LONG,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "abcd/Prog"));
+}
+
+#if defined(RL_WIN32)
+UTEST(split_exe_path, a_drive_letter_path_is_a_host_path)
+{
+	char dir[260];
+	const char *name = NULL;
+
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "C:\\Users\\user\\some.exe"));
+	ASSERT_STREQ("C:\\Users\\user", dir);
+	ASSERT_STREQ("some.exe", name);
+
+	/* The drive's own root keeps its separator: "C:" alone would resolve
+	 * against whatever the current directory on that drive happens to be. */
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "C:\\some.exe"));
+	ASSERT_STREQ("C:\\", dir);
+	ASSERT_STREQ("some.exe", name);
+
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "dir\\Prog"));
+	ASSERT_STREQ("dir", dir);
+	ASSERT_STREQ("Prog", name);
+
+	/* A colon that is not a drive prefix still belongs to the target. */
+	ASSERT_EQ(RL_EXE_PATH_NO_DIRECTORY,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "C:dir"));
+}
+#else
+/* A backslash is an ordinary filename character here, and a drive letter is
+ * not a thing, so "C:\..." is just another path only the target can resolve. */
+UTEST(split_exe_path, a_backslash_is_not_a_separator)
+{
+	char dir[260];
+	const char *name = NULL;
+
+	ASSERT_EQ(RL_EXE_PATH_NO_DIRECTORY,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "C:\\Users\\user\\some.exe"));
+
+	ASSERT_EQ(RL_EXE_PATH_SPLIT,
+			  rl_split_exe_path(sizeof(dir), dir, &name, "dir/odd\\name"));
+	ASSERT_STREQ("dir", dir);
+	ASSERT_STREQ("odd\\name", name);
+}
+#endif
+
+/* -------------------------------------------------------------------------
  * file_server.c -- path handling
  * ------------------------------------------------------------------------- */
 
@@ -415,6 +550,21 @@ UTEST(fix_path, joins_against_the_served_root)
 	ASSERT_EQ(0, fix_path(dest, sizeof(dest), "sub/file.txt", root));
 	ASSERT_STREQ(expected, dest);
 }
+
+#if defined(RL_POSIX)
+/*
+ * An executable in the filesystem root leaves "/" as the served root. The join
+ * doubles the separator there, which POSIX resolves to the same file, and the
+ * root check has to accept the result rather than deny every request.
+ */
+UTEST(fix_path, joins_against_the_filesystem_root)
+{
+	char dest[260];
+
+	ASSERT_EQ(0, fix_path(dest, sizeof(dest), "rlaunch-no-such-entry", "/"));
+	ASSERT_STREQ("//rlaunch-no-such-entry", dest);
+}
+#endif
 
 UTEST(fix_path, rejects_traversal_outside_the_served_root)
 {
