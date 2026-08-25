@@ -131,7 +131,8 @@ Arguments:
 
 Options:
   -fsroot        Specifies the file serving directory. The executable
-                 must live in this directory as well. (default: cwd)
+                 must live in this directory as well. (default: exe_path's
+                 own directory, or cwd if exe_path has none)
 
   -port          The TCP port to connect to (default: 7001)
 

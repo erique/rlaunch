@@ -288,7 +288,8 @@ static const char * const usage_string =
 "\n"
 "Options:\n"
 "  -fsroot        Specifies the file serving directory. The executable\n"
-"                 must live in this directory as well. (default: cwd)\n"
+"                 must live in this directory as well. (default: exe_path's\n"
+"                 own directory, or cwd if exe_path has none)\n"
 "\n"
 "  -port          The TCP port to connect to (default: 7001)\n"
 "\n"
@@ -408,6 +409,27 @@ int main(int argc, char** argv)
 	{
 		RL_LOG_CONSOLE(("%s", usage_string));
 		goto cleanup;
+	}
+
+	/* Without an explicit -fsroot, derive it from exe_path's directory so
+	 * `rl-controller host some/dir/Exe` works without a separate -fsroot.
+	 * exe_path containing ':' is an absolute Amiga path (e.g. c:list) run
+	 * directly on the target rather than served from the host, so it is
+	 * left alone. */
+	char derived_fsroot[sizeof(ctrl.root_handle.native_path)];
+
+	if (!fsroot[0] && NULL == rl_strchr(ctrl.executable, ':'))
+	{
+		const char *slash = strrchr(ctrl.executable, '/');
+
+		if (NULL != slash && (size_t) (slash - ctrl.executable) < sizeof(derived_fsroot))
+		{
+			size_t dirlen = (size_t) (slash - ctrl.executable);
+			memcpy(derived_fsroot, ctrl.executable, dirlen);
+			derived_fsroot[dirlen] = '\0';
+			fsroot = derived_fsroot;
+			ctrl.executable = slash + 1;
+		}
 	}
 
 #ifdef RL_WIN32
